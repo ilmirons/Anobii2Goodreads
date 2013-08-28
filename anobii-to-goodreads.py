@@ -1,6 +1,7 @@
 # Customise these variables to define input and output
 anobii_file = "anobii.csv"
 goodreads_file = "import_to_goodreads.csv" 
+goodreads_date_fmt = "%Y-%m-%d"
 
 ####### do not change anything below this line
 
@@ -102,7 +103,7 @@ for l in reader:
 	def convertdate(d):
 	    dt = datetime.strptime(d, "%b %d, %Y")
 	    # Goodreads takes US formatted dates without century (just as stupid as Anobii really)
-	    return dt.strftime("%m/%d/%y")
+	    return dt.strftime(goodreads_date_fmt)
 	
 	# Fragile but it works
 	status = l[11]
