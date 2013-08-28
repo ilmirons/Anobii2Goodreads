@@ -6,7 +6,7 @@ goodreads_date_fmt = "%Y-%m-%d"
 ####### do not change anything below this line
 
 from datetime import date, datetime
-import csv, codecs, cStringIO
+import csv, codecs, cStringIO, re
 
 class UTF8Recoder:
 	"""
@@ -104,6 +104,25 @@ for l in reader:
 	    dt = datetime.strptime(d, "%b %d, %Y")
 	    # Goodreads takes US formatted dates without century (just as stupid as Anobii really)
 	    return dt.strftime(goodreads_date_fmt)
+
+	def convertdate2(txt):
+		# thanks to the wonderful http://txt2re.com/index-python.php3?s=Aug%202004&3&7&2
+		re1='((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Sept|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?))'	# Month 1
+		re2='(\\s+)'	# White Space 1
+		re3='((?:(?:[1]{1}\\d{1}\\d{1}\\d{1})|(?:[2]{1}\\d{3})))(?![\\d])'	# Year 1
+
+		rg = re.compile(re1+re2+re3,re.IGNORECASE|re.DOTALL)
+		m = rg.search(txt)
+		if m:
+		    month1=m.group(1)
+		    ws1=m.group(2)
+		    year1=m.group(3)
+		    #print "("+month1+")"+"("+ws1+")"+"("+year1+")"+"\n"
+		    return convertdate(month1+" 1, "+year1)
+		else:
+			if len(txt)>=4:
+				return convertdate("Jan 1, "+txt)
+
 	
 	# Fragile but it works
 	status = l[11]
@@ -111,6 +130,8 @@ for l in reader:
 	if "Finished" in status:
 	    if "on" in status:
 	        readdate = convertdate(status[12:])
+	    elif "in" in status:
+	    	readdate = convertdate2(status[12:])
 	    else:
 	        readdate = "1/1/12"
 	elif "Not Started" in status:
