@@ -1,9 +1,9 @@
+#!/usr/bin/env python
+
 # Customise these variables to define input and output
 anobii_file = "anobii.csv"
 goodreads_file = "import_to_goodreads.csv" 
-goodreads_date_fmt = "%Y-%m-%d"
-
-####### do not change anything below this line
+goodreads_date_fmt = "%Y/%m/%d"
 
 from datetime import date, datetime
 import csv, codecs, cStringIO, re
@@ -79,15 +79,18 @@ reader = UnicodeReader(open(anobii_file, "rb"))
 reader.next() # first line is column titles
 target = []
 
-target.append(["Title", "Author", "Additional Authors", "ISBN", "ISBN13", "My Rating", "Average Rating", "Publisher", "Binding", "Year Published", "Original Publication Year", "Date Read", "Date Added", "Bookshelves", "My Review", "Spoiler", "Private Notes", "Recommended For", "Recommended By"])
+target.append(["Title", "Author", "Additional Authors", "ISBN", "ISBN13", "My Rating", "Average Rating", "Publisher", "Binding", "Number of Pages", "Year Published", "Original Publication Year", "Date Read", "Date Added", "Bookshelves", "My Review", "Spoiler", "Private Notes", "Recommended For", "Recommended By"])
 
 for l in reader:
+        
+        bookshelves = []
+        
 	isbn = l[0].replace('[', '').replace(']', '')
 	title = l[1]
 	subtitle = l[2] # Unused
 	author = l[3]
 	format = l[4]
-	pages = l[5] # Unused
+	pages = l[5]
 	publisher = l[6]
 	
 	pubdate = l[7]
@@ -99,58 +102,64 @@ for l in reader:
 	commentTitle = l[9] # Unused
 	comment = l[10]
 	
+	def convertdate(dateString):
+            """
+            Dispatch date string to correct parsing function. Useful to handle dates which do not include date or month (partial dates)
+            """
+            if "," in dateString:
+                return fullDate(dateString)
+            else:
+                return partialDate(dateString)
+            
 	
-	def convertdate(d):
+	def fullDate(d):
 	    dt = datetime.strptime(d, "%b %d, %Y")
 	    # Goodreads takes US formatted dates without century (just as stupid as Anobii really)
 	    return dt.strftime(goodreads_date_fmt)
 
-	def convertdate2(txt):
+	def partialDate(txt):
 		# thanks to the wonderful http://txt2re.com/index-python.php3?s=Aug%202004&3&7&2
 		re1='((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Sept|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?))'	# Month 1
 		re2='(\\s+)'	# White Space 1
 		re3='((?:(?:[1]{1}\\d{1}\\d{1}\\d{1})|(?:[2]{1}\\d{3})))(?![\\d])'	# Year 1
 
-		rg = re.compile(re1+re2+re3,re.IGNORECASE|re.DOTALL)
+		rg = re.compile(re1 + re2 + re3,re.IGNORECASE|re.DOTALL)
 		m = rg.search(txt)
 		if m:
-		    month1=m.group(1)
-		    ws1=m.group(2)
-		    year1=m.group(3)
-		    #print "("+month1+")"+"("+ws1+")"+"("+year1+")"+"\n"
-		    return convertdate(month1+" 1, "+year1)
+		    month1 = m.group(1)
+		    ws1 = m.group(2)
+		    year1 = m.group(3)
+		    return convertdate(month1 + " 1, " + year1)
 		else:
 			if len(txt)>=4:
-				return convertdate("Jan 1, "+txt)
+				return convertdate("Jan 1, " + txt)
 
 	
 	# Fragile but it works
 	status = l[11]
 	readdate = ""
-	if "Finished" in status:
-	    if "on" in status:
-	        readdate = convertdate(status[12:])
-	    elif "in" in status:
-	    	readdate = convertdate2(status[12:])
-	    else:
-	        readdate = "1/1/12"
-	elif "Not Started" in status:
-	    pass
-	elif "Reading":
-	    pass
-	elif "Abandoned" in status:
-	    if "on" in status:
-	        readdate = convertdate(status[13:])
-	    else:
-	        readdate = "1/1/12"
+	if "Finito" in status:
+            bookshelves.append("read")
+	    if "il" in status:
+	        readdate = convertdate(status[10:])
+	elif "Non Iniziato" in status:
+	    bookshelves.append("not-started")
+	elif "In lettura" in status:
+	    bookshelves.append("currently-reading")
+	elif "Abbandonato" in status:
+            bookshelves.append("abandoned")
+        elif "Non finito" in status:
+            bookshelves.append("unfinished")
+        elif "Da consultazione" in status or "Nota di riferimento" in status:
+            bookshelves.append("reference")
 	
 	stars = l[12]
 	tags = l[13].replace(" ","-").replace("-/-"," ") # unused
 	
-	tline = [title, author, "", "", isbn, stars, "", publisher, format, pubyear, "", readdate, "", "", comment, "", privnote, "", ""]
+	tline = [title, author, "", "", isbn, stars, "", publisher, format, pages, pubyear, "", readdate, "", ",".join(bookshelves), comment, "", privnote, "", ""]
 	target.append(tline)
 
-writer = UnicodeWriter(open(goodreads_file, "wb"), dialect='excel', quoting=csv.QUOTE_NONNUMERIC)
+writer = UnicodeWriter(open(goodreads_file, "wb"), dialect='excel', quoting = csv.QUOTE_NONNUMERIC)
 writer.writerows(target)
 
 print "Done! saved output to " + goodreads_file
