@@ -142,7 +142,7 @@ for l in reader:
             bookshelves.append("read")
 	    if "il" in status:
 	        readdate = convertdate(status[10:])
-	elif "Non Iniziato" in status:
+	elif "Non iniziato" in status:
 	    bookshelves.append("not-started")
 	elif "In lettura" in status:
 	    bookshelves.append("currently-reading")
